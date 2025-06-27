@@ -1,0 +1,297 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <title>금성 겉보기 운동 시뮬레이터 (역행 루프)</title>
+  <style>
+    body {
+      margin: 0;
+      background-color: #111;
+      color: white;
+      font-family: sans-serif;
+    }
+    #container {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 10px;
+    }
+    canvas {
+      background-color: #000;
+      margin-bottom: 10px;
+      border: 1px solid #333;
+    }
+    .controls {
+      display: flex;
+      gap: 20px;
+      align-items: center;
+      flex-wrap: wrap;
+      justify-content: center;
+    }
+    .control-group {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+    input[type="range"] {
+      width: 120px;
+    }
+    button {
+      padding: 8px 16px;
+      font-size: 14px;
+      cursor: pointer;
+      background: #333;
+      color: white;
+      border: 1px solid #555;
+      border-radius: 4px;
+    }
+    button:hover {
+      background: #444;
+    }
+    .info {
+      margin-top: 10px;
+      font-size: 12px;
+      color: #aaa;
+      text-align: center;
+    }
+  </style>
+</head>
+<body>
+  <div id="container">
+    <canvas id="simulationCanvas" width="1200" height="800"></canvas>
+    <div class="controls">
+      <div class="control-group">
+        <label for="speedSlider">시뮬레이션 속도</label>
+        <input type="range" id="speedSlider" min="0.1" max="5.0" step="0.1" value="1.0">
+        <span id="speedValue">1.0</span>
+      </div>
+      <button id="toggleBtn">일시정지</button>
+      <button id="resetBtn">초기화</button>
+    </div>
+  </div>
+
+  <script>
+    const canvas = document.getElementById('simulationCanvas');
+    const ctx = canvas.getContext('2d');
+    
+    // 시뮬레이션 변수
+    let time = 0;
+    let animationSpeed = 1.0;
+    let isPlaying = true;
+    
+    // 궤도 반지름 (실제 비율)
+    const venusOrbitRadius = 200;
+    const earthOrbitRadius = 340;
+    
+    // 공전 속도 (실제 비율 기반)
+    const venusAngularSpeed = 1.625; // 금성이 지구보다 1.625배 빠름
+    const earthAngularSpeed = 1.0;
+    
+    // 화면 중심
+    const centerX = canvas.width / 2;
+    const centerY = canvas.height / 2;
+    
+    // 천구면 반지름
+    const celestialSphereRadius = 600;
+    
+    // 궤적 저장
+    const venusTrail = [];
+    const earthTrail = [];
+    const apparentTrail = [];
+    const maxTrailLength = 500;
+    
+    function setup() {
+      // 초기화
+      time = 0;
+      venusTrail.length = 0;
+      earthTrail.length = 0;
+      apparentTrail.length = 0;
+    }
+    
+    function calculatePositions() {
+      // 실제 위치 계산
+      const venusAngle = time * venusAngularSpeed;
+      const earthAngle = time * earthAngularSpeed;
+      
+      const venusX = centerX + Math.cos(venusAngle) * venusOrbitRadius;
+      const venusY = centerY + Math.sin(venusAngle) * venusOrbitRadius;
+      
+      const earthX = centerX + Math.cos(earthAngle) * earthOrbitRadius;
+      const earthY = centerY + Math.sin(earthAngle) * earthOrbitRadius;
+      
+      // 지구에서 본 금성의 방향 벡터
+      const relativeX = venusX - earthX;
+      const relativeY = venusY - earthY;
+      
+      // 방향을 정규화하고 천구면에 투영
+      const distance = Math.sqrt(relativeX * relativeX + relativeY * relativeY);
+      const apparentX = earthX + (relativeX / distance) * celestialSphereRadius;
+      const apparentY = earthY + (relativeY / distance) * celestialSphereRadius;
+      
+      return {
+        venus: { x: venusX, y: venusY },
+        earth: { x: earthX, y: earthY },
+        apparent: { x: apparentX, y: apparentY }
+      };
+    }
+    
+    function updateTrails(positions) {
+      // 궤적 업데이트
+      venusTrail.push({ ...positions.venus });
+      earthTrail.push({ ...positions.earth });
+      apparentTrail.push({ ...positions.apparent });
+      
+      // 궤적 길이 제한
+      if (venusTrail.length > maxTrailLength) venusTrail.shift();
+      if (earthTrail.length > maxTrailLength) earthTrail.shift();
+      if (apparentTrail.length > maxTrailLength) apparentTrail.shift();
+    }
+    
+    function drawTrail(trail, color, width = 1) {
+      if (trail.length < 2) return;
+      
+      ctx.strokeStyle = color;
+      ctx.lineWidth = width;
+      ctx.beginPath();
+      ctx.moveTo(trail[0].x, trail[0].y);
+      
+      for (let i = 1; i < trail.length; i++) {
+        const alpha = i / trail.length;
+        ctx.globalAlpha = alpha * 0.7;
+        ctx.lineTo(trail[i].x, trail[i].y);
+      }
+      
+      ctx.stroke();
+      ctx.globalAlpha = 1.0;
+    }
+    
+    function drawApparentTrailWithGradient(trail) {
+      if (trail.length < 2) return;
+      
+      for (let i = 1; i < trail.length; i++) {
+        const alpha = (i / trail.length) * 0.8;
+        
+        ctx.strokeStyle = `rgba(255, 255, 255, ${alpha})`;
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        ctx.moveTo(trail[i-1].x, trail[i-1].y);
+        ctx.lineTo(trail[i].x, trail[i].y);
+        ctx.stroke();
+      }
+    }
+    
+    function draw() {
+      // 화면 지우기
+      ctx.fillStyle = '#000';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      
+      const positions = calculatePositions();
+      
+      if (isPlaying) {
+        updateTrails(positions);
+      }
+      
+      // 태양 그리기
+      ctx.fillStyle = '#FFD700';
+      ctx.beginPath();
+      ctx.arc(centerX, centerY, 15, 0, Math.PI * 2);
+      ctx.fill();
+      
+      // 궤도 그리기
+      ctx.strokeStyle = '#333';
+      ctx.lineWidth = 1;
+      ctx.setLineDash([5, 5]);
+      
+      // 금성 궤도
+      ctx.beginPath();
+      ctx.arc(centerX, centerY, venusOrbitRadius, 0, Math.PI * 2);
+      ctx.stroke();
+      
+      // 지구 궤도  
+      ctx.beginPath();
+      ctx.arc(centerX, centerY, earthOrbitRadius, 0, Math.PI * 2);
+      ctx.stroke();
+      
+      ctx.setLineDash([]);
+      
+      
+      // 궤적 그리기
+      drawTrail(venusTrail, '#FF6600', 2);
+      drawTrail(earthTrail, '#0066FF', 2);
+      drawApparentTrailWithGradient(apparentTrail);
+      
+      // 관측선 그리기
+      ctx.strokeStyle = '#FFFF00';
+      ctx.lineWidth = 1;
+      ctx.setLineDash([3, 3]);
+      ctx.beginPath();
+      ctx.moveTo(positions.earth.x, positions.earth.y);
+      ctx.lineTo(positions.venus.x, positions.venus.y);
+      ctx.stroke();
+      
+      ctx.strokeStyle = '#ffe600';
+      ctx.lineWidth = 2;
+      ctx.setLineDash([]);
+      ctx.beginPath();
+      ctx.moveTo(positions.earth.x, positions.earth.y);
+      ctx.lineTo(positions.apparent.x, positions.apparent.y);
+      ctx.stroke();
+      
+      // 행성들 그리기
+      // 금성
+      ctx.fillStyle = '#FF6600';
+      ctx.beginPath();
+      ctx.arc(positions.venus.x, positions.venus.y, 8, 0, Math.PI * 2);
+      ctx.fill();
+      
+      // 지구
+      ctx.fillStyle = '#0066FF';
+      ctx.beginPath();
+      ctx.arc(positions.earth.x, positions.earth.y, 10, 0, Math.PI * 2);
+      ctx.fill();
+      
+      // 천구면상의 겉보기 위치
+      ctx.fillStyle = '#FFFFFF';
+      ctx.beginPath();
+      ctx.arc(positions.apparent.x, positions.apparent.y, 6, 0, Math.PI * 2);
+      ctx.fill();
+      
+      // 레이블
+      ctx.fillStyle = '#FFF';
+      ctx.font = '14px sans-serif';
+      ctx.fillText('태양', centerX + 20, centerY);
+      ctx.fillText('금성', positions.venus.x + 15, positions.venus.y);
+      ctx.fillText('지구', positions.earth.x + 15, positions.earth.y);
+      ctx.fillText('겉보기 위치', positions.apparent.x + 10, positions.apparent.y - 10);
+    }
+    
+    function animate() {
+      if (isPlaying) {
+        time += 0.02 * animationSpeed;
+      }
+      draw();
+      requestAnimationFrame(animate);
+    }
+    
+    // 이벤트 리스너
+    document.getElementById('speedSlider').addEventListener('input', (e) => {
+      animationSpeed = parseFloat(e.target.value);
+      document.getElementById('speedValue').textContent = animationSpeed.toFixed(1);
+    });
+    
+    document.getElementById('toggleBtn').addEventListener('click', () => {
+      isPlaying = !isPlaying;
+      document.getElementById('toggleBtn').textContent = isPlaying ? '일시정지' : '재생';
+    });
+    
+    document.getElementById('resetBtn').addEventListener('click', () => {
+      setup();
+    });
+    
+    
+    // 초기화 및 시작
+    setup();
+    animate();
+  </script>
+</body>
+</html>
