@@ -2,7 +2,7 @@
 <html lang="ko">
 <head>
   <meta charset="UTF-8">
-  <title>겉보기 운동 시뮬레이터</title>
+  <title>행성 겉보기 운동 시뮬레이터</title>
   <style>
     body {
       margin: 0;
@@ -53,12 +53,53 @@
       font-size: 12px;
       color: #aaa;
       text-align: center;
+      max-width: 800px;
+    }
+    .tabs {
+      display: flex;
+      margin-bottom: 20px;
+      border-radius: 8px;
+      overflow: hidden;
+      background: #222;
+    }
+    
+    .tab {
+      padding: 12px 24px;
+      cursor: pointer;
+      background: #333;
+      border: none;
+      color: white;
+      font-size: 16px;
+      transition: background 0.3s;
+    }
+    
+    .tab:hover {
+      background: #444;
+    }
+    
+    .tab.active {
+      background: #555;
+      border-bottom: 3px solid #FF6600;
+    }
+    
+    .tab-content {
+      display: none;
+    }
+    
+    .tab-content.active {
+      display: block;
     }
   </style>
 </head>
 <body>
   <div id="container">
+    <div class="tabs">
+      <button class="tab active" data-tab="venus">내행성 (금성)</button>
+      <button class="tab" data-tab="mars">외행성 (화성)</button>
+    </div>
+    
     <canvas id="simulationCanvas" width="1200" height="800"></canvas>
+    
     <div class="controls">
       <div class="control-group">
         <label for="speedSlider">시뮬레이션 속도</label>
@@ -67,6 +108,15 @@
       </div>
       <button id="toggleBtn">일시정지</button>
       <button id="resetBtn">초기화</button>
+    </div>
+    
+    <div class="info">
+      <div id="venusInfo" class="tab-content active">
+        <strong>내행성 (금성) 겉보기 운동</strong>
+      </div>
+      <div id="marsInfo" class="tab-content">
+        <strong>외행성 (화성) 겉보기 운동</strong>
+      </div>
     </div>
   </div>
 
@@ -78,50 +128,97 @@
     let time = 0;
     let animationSpeed = 1.0;
     let isPlaying = true;
+    let currentTab = 'venus';
     
-    // 궤도 반지름 (실제 비율)
-    const venusOrbitRadius = 200;
-    const earthOrbitRadius = 340;
-    
-    // 공전 속도 (실제 비율 기반)
-    const venusAngularSpeed = 1.625; // 금성이 지구보다 1.625배 빠름
-    const earthAngularSpeed = 1.0;
-    
+    const marsConfig = {
+      planetOrbitRadius: 225,
+      earthOrbitRadius: 170,
+      planetAngularSpeed: 0.532,
+      earthAngularSpeed: 1.0,
+      planetColor: '#FF4444',
+      planetName: '화성'
+    };
+
+    const venusConfig = {
+      planetOrbitRadius: 100,
+      earthOrbitRadius: 170,
+      planetAngularSpeed: 1.625,
+      earthAngularSpeed: 1.0,
+      planetColor: '#FF6600',
+      planetName: '금성'
+    };
+
     // 화면 중심
     const centerX = canvas.width / 2;
     const centerY = canvas.height / 2;
     
     // 천구면 반지름
-    const celestialSphereRadius = 600;
+    const celestialSphereRadius = 300;
     
     // 궤적 저장
-    const venusTrail = [];
-    const earthTrail = [];
-    const apparentTrail = [];
+    const trails = {
+      venus: {
+        planet: [],
+        earth: [],
+        apparent: []
+      },
+      mars: {
+        planet: [],
+        earth: [],
+        apparent: []
+      }
+    };
     const maxTrailLength = 500;
     
+    function getCurrentConfig() {
+      return currentTab === 'venus' ? venusConfig : marsConfig;
+    }
+
+    function getCurrentTrails() {
+      return trails[currentTab];
+    }
+
+    function switchTab(tabName) {
+      // 탭 버튼 업데이트
+      document.querySelectorAll('.tab').forEach(tab => {
+        tab.classList.remove('active');
+      });
+      document.querySelector(`[data-tab="${tabName}"]`).classList.add('active');
+  
+      //  텍스트 업데이트
+      document.querySelectorAll('.tab-content').forEach(content => {
+        content.classList.remove('active');
+      });
+      document.getElementById(`${tabName}Info`).classList.add('active');
+  
+      currentTab = tabName;
+    }
+
     function setup() {
       // 초기화
       time = 0;
-      venusTrail.length = 0;
-      earthTrail.length = 0;
-      apparentTrail.length = 0;
+      Object.keys(trails).forEach(planet => {
+        trails[planet].planet.length = 0;
+        trails[planet].earth.length = 0;
+        trails[planet].apparent.length = 0;
+      });
     }
     
     function calculatePositions() {
       // 실제 위치 계산
-      const venusAngle = time * venusAngularSpeed;
-      const earthAngle = time * earthAngularSpeed;
+      const config = getCurrentConfig();
+      const planetAngle = time * config.planetAngularSpeed;
+      const earthAngle = time * config.earthAngularSpeed;
       
-      const venusX = centerX + Math.cos(venusAngle) * venusOrbitRadius;
-      const venusY = centerY + Math.sin(venusAngle) * venusOrbitRadius;
+      const planetX = centerX + Math.cos(planetAngle) * config.planetOrbitRadius;
+      const planetY = centerY + Math.sin(planetAngle) * config.planetOrbitRadius;
       
-      const earthX = centerX + Math.cos(earthAngle) * earthOrbitRadius;
-      const earthY = centerY + Math.sin(earthAngle) * earthOrbitRadius;
+      const earthX = centerX + Math.cos(earthAngle) * config.earthOrbitRadius;
+      const earthY = centerY + Math.sin(earthAngle) * config.earthOrbitRadius;
       
-      // 지구에서 본 금성의 방향 벡터
-      const relativeX = venusX - earthX;
-      const relativeY = venusY - earthY;
+      // 지구에서 본 행성의 방향 벡터
+      const relativeX = planetX - earthX;
+      const relativeY = planetY - earthY;
       
       // 방향을 정규화하고 천구면에 투영
       const distance = Math.sqrt(relativeX * relativeX + relativeY * relativeY);
@@ -129,7 +226,7 @@
       const apparentY = earthY + (relativeY / distance) * celestialSphereRadius;
       
       return {
-        venus: { x: venusX, y: venusY },
+        planet: { x: planetX, y: planetY },
         earth: { x: earthX, y: earthY },
         apparent: { x: apparentX, y: apparentY }
       };
@@ -137,14 +234,16 @@
     
     function updateTrails(positions) {
       // 궤적 업데이트
-      venusTrail.push({ ...positions.venus });
-      earthTrail.push({ ...positions.earth });
-      apparentTrail.push({ ...positions.apparent });
+      const currentTrails = getCurrentTrails();
+  
+      currentTrails.planet.push({ ...positions.planet });
+      currentTrails.earth.push({ ...positions.earth });
+      currentTrails.apparent.push({ ...positions.apparent });
       
       // 궤적 길이 제한
-      if (venusTrail.length > maxTrailLength) venusTrail.shift();
-      if (earthTrail.length > maxTrailLength) earthTrail.shift();
-      if (apparentTrail.length > maxTrailLength) apparentTrail.shift();
+      if (currentTrails.planet.length > maxTrailLength) currentTrails.planet.shift();
+      if (currentTrails.earth.length > maxTrailLength) currentTrails.earth.shift();
+      if (currentTrails.apparent.length > maxTrailLength) currentTrails.apparent.shift();
     }
     
     function drawTrail(trail, color, width = 1) {
@@ -181,6 +280,9 @@
     }
     
     function draw() {
+      const config = getCurrentConfig();
+      const currentTrails = getCurrentTrails();
+      
       // 화면 지우기
       ctx.fillStyle = '#000';
       ctx.fillRect(0, 0, canvas.width, canvas.height);
@@ -202,23 +304,22 @@
       ctx.lineWidth = 1;
       ctx.setLineDash([5, 5]);
       
-      // 금성 궤도
+      // 행성 궤도
       ctx.beginPath();
-      ctx.arc(centerX, centerY, venusOrbitRadius, 0, Math.PI * 2);
+      ctx.arc(centerX, centerY, config.planetOrbitRadius, 0, Math.PI * 2);
       ctx.stroke();
       
       // 지구 궤도  
       ctx.beginPath();
-      ctx.arc(centerX, centerY, earthOrbitRadius, 0, Math.PI * 2);
+      ctx.arc(centerX, centerY, config.earthOrbitRadius, 0, Math.PI * 2);
       ctx.stroke();
       
       ctx.setLineDash([]);
       
-      
       // 궤적 그리기
-      drawTrail(venusTrail, '#FF6600', 2);
-      drawTrail(earthTrail, '#0066FF', 2);
-      drawApparentTrailWithGradient(apparentTrail);
+      drawTrail(currentTrails.planet, config.planetColor, 2);
+      drawTrail(currentTrails.earth, '#0066FF', 2);
+      drawApparentTrailWithGradient(currentTrails.apparent);
       
       // 관측선 그리기
       ctx.strokeStyle = '#FFFF00';
@@ -226,7 +327,7 @@
       ctx.setLineDash([3, 3]);
       ctx.beginPath();
       ctx.moveTo(positions.earth.x, positions.earth.y);
-      ctx.lineTo(positions.venus.x, positions.venus.y);
+      ctx.lineTo(positions.planet.x, positions.planet.y);
       ctx.stroke();
       
       ctx.strokeStyle = '#ffe600';
@@ -238,10 +339,10 @@
       ctx.stroke();
       
       // 행성들 그리기
-      // 금성
-      ctx.fillStyle = '#FF6600';
+      // 목표 행성
+      ctx.fillStyle = config.planetColor;
       ctx.beginPath();
-      ctx.arc(positions.venus.x, positions.venus.y, 8, 0, Math.PI * 2);
+      ctx.arc(positions.planet.x, positions.planet.y, 8, 0, Math.PI * 2);
       ctx.fill();
       
       // 지구
@@ -260,9 +361,10 @@
       ctx.fillStyle = '#FFF';
       ctx.font = '14px sans-serif';
       ctx.fillText('태양', centerX + 20, centerY);
-      ctx.fillText('금성', positions.venus.x + 15, positions.venus.y);
+      ctx.fillText(config.planetName, positions.planet.x + 15, positions.planet.y);
       ctx.fillText('지구', positions.earth.x + 15, positions.earth.y);
       ctx.fillText('겉보기 위치', positions.apparent.x + 10, positions.apparent.y - 10);
+
     }
     
     function animate() {
@@ -288,6 +390,12 @@
       setup();
     });
     
+    document.querySelectorAll('.tab').forEach(tab => {
+      tab.addEventListener('click', (e) => {
+        const tabName = e.target.getAttribute('data-tab');
+        switchTab(tabName);
+      });
+    });
     
     // 초기화 및 시작
     setup();
