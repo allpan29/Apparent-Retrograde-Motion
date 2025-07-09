@@ -52,6 +52,7 @@ function getCurrentTrails() {
   return trails[currentTab];
 }
 
+// ✨ 수정된 부분: 탭 전환 시 시뮬레이션을 초기화하는 setup() 함수 호출 추가
 function switchTab(tabName) {
   document.querySelectorAll('.tab').forEach(tab => {
     tab.classList.remove('active');
@@ -64,6 +65,7 @@ function switchTab(tabName) {
   document.getElementById(`${tabName}Info`).classList.add('active');
 
   currentTab = tabName;
+  setup(); // 탭이 변경될 때 시뮬레이션을 리셋합니다.
 }
 
 function switchView(viewName) {
