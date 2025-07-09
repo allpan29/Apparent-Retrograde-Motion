@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <title>행성 겉보기 운동 시뮬레이터</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div id="container">
+    <div class="tabs">
+      <button class="tab active" data-tab="venus">내행성 (금성)</button>
+      <button class="tab" data-tab="mars">외행성 (화성)</button>
+    </div>
+    
+    <canvas id="simulationCanvas" width="1200" height="800"></canvas>
+    
+    <div class="controls">
+      <div class="control-group">
+        <label for="speedSlider">시뮬레이션 속도</label>
+        <input type="range" id="speedSlider" min="0.1" max="5.0" step="0.1" value="1.0">
+        <span id="speedValue">1.0</span>
+      </div>
+      <button id="toggleBtn">일시정지</button>
+      <button id="resetBtn">초기화</button>
+    </div>
+    
+    <div class="info">
+      <div id="venusInfo" class="tab-content active">
+        <strong>내행성 (금성) 겉보기 운동</strong>
+      </div>
+      <div id="marsInfo" class="tab-content">
+        <strong>외행성 (화성) 겉보기 운동</strong>
+      </div>
+    </div>
+  </div>
+
+  <script src="script.js"></script>
+</body>
+</html>
