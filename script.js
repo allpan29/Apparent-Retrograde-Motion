@@ -1,13 +1,14 @@
     const canvas = document.getElementById('simulationCanvas');
     const ctx = canvas.getContext('2d');
-
+    
     // 시뮬레이션 변수
     let time = 0;
     let animationSpeed = 1.0;
     let isPlaying = true;
     let currentTab = 'venus';
     let currentView = 'top-down';
-
+    
+    // 화성 모델 설정
     const marsConfig = {
       planetOrbitRadius: 193,
       earthOrbitRadius: 146,
@@ -16,7 +17,8 @@
       planetColor: '#FF4444',
       planetName: '화성'
     };
-
+    
+    // 금성 모델 설정
     const venusConfig = {
       planetOrbitRadius: 86,
       earthOrbitRadius: 146,
@@ -25,17 +27,20 @@
       planetColor: '#FF6600',
       planetName: '금성'
     };
-
+    
     // 프톨레마이오스 모델 설정
     const ptolemaicConfig = {
       deferentRadius: 180,        
       epicycleRadius: 45,         // 주전원 반지름
+      sunOrbitRadius: 280,
       deferentAngularSpeed: 1.2,
       epicycleAngularSpeed: 4.5,  // 주전원 각속도
       planetColor: '#FF6600',
-      planetName: '금성'
+      planetName: '금성',
+      sunAngularSpeed : 1.2
     };
 
+    // 센터 설정
     const centerX = canvas.width / 2;
     const centerY = canvas.height / 2;
     const celestialSphereRadius = 300;
@@ -44,10 +49,11 @@
     const trails = {
       venus: { planet: [], earth: [], apparent: [], geoPlanet: [], geoSun: [] },
       mars: { planet: [], earth: [], apparent: [], geoPlanet: [], geoSun: [] },
-      ptolemaic: { planet: [], epicycleCenter: [], deferent: [] }
+      ptolemaic: { planet: [], epicycleCenter: [], deferent: [], sun: [] }
     };
     const maxTrailLength = 500;
 
+    // 현재 탭 정보 얻어오는 함수
     function getCurrentConfig() {
       if (currentTab === 'ptolemaic') return ptolemaicConfig;
       return currentTab === 'venus' ? venusConfig : marsConfig;
@@ -72,6 +78,7 @@
       setup();
     }
 
+    // 초기화
     function setup() {
       time = 0;
       Object.keys(trails).forEach(planet => {
@@ -114,6 +121,7 @@
       const config = ptolemaicConfig;
       const deferentAngle = time * config.deferentAngularSpeed;
       const epicycleAngle = time * config.epicycleAngularSpeed;
+      const sunAngle = time * config.sunAngularSpeed;
 
       // 공전 궤도 위의 주전원 중심
       const epicycleX = centerX + Math.cos(deferentAngle) * config.deferentRadius;
@@ -123,11 +131,16 @@
       const planetX = epicycleX + Math.cos(epicycleAngle) * config.epicycleRadius;
       const planetY = epicycleY + Math.sin(epicycleAngle) * config.epicycleRadius;
 
+      // 태양 위치
+      const sunX = centerX + Math.cos(sunAngle) * config.sunOrbitRadius;
+      const sunY = centerY + Math.sin(sunAngle) * config.sunOrbitRadius;
+
       return {
         planet: { x: planetX, y: planetY },
         epicycleCenter: { x: epicycleX, y: epicycleY },
         deferentAngle: deferentAngle,
-        epicycleAngle: epicycleAngle
+        epicycleAngle: epicycleAngle,
+        sun: { x: sunX, y: sunY }
       };
     }
 
@@ -137,9 +150,11 @@
       if (currentTab === 'ptolemaic') {
         currentTrails.planet.push({ ...positions.planet });
         currentTrails.epicycleCenter.push({ ...positions.epicycleCenter });
-        
+        currentTrails.sun.push({ ...positions.sun });
+
         if (currentTrails.planet.length > maxTrailLength) currentTrails.planet.shift();
         if (currentTrails.epicycleCenter.length > maxTrailLength) currentTrails.epicycleCenter.shift();
+        if (currentTrails.sun.length > maxTrailLength) currentTrails.sun.shift();
         return;
       }
 
@@ -225,6 +240,7 @@
       // 궤적 그리기
       drawTrail(currentTrails.epicycleCenter, '#888', 2);
       drawTrail(currentTrails.planet, config.planetColor, 3);
+      drawTrail(currentTrails.sun, '#FFD700', 2);
 
       // 주전원 중심에서 금성까지의 선
       ctx.strokeStyle = '#FFFF00';
@@ -258,12 +274,19 @@
       ctx.arc(positions.planet.x, positions.planet.y, 8, 0, Math.PI * 2);
       ctx.fill();
 
+      // 태양
+      ctx.fillStyle = '#FFD700';
+      ctx.beginPath();
+      ctx.arc(positions.sun.x, positions.sun.y, 10, 0, Math.PI * 2);
+      ctx.fill();
+
       // 라벨
       ctx.fillStyle = '#FFF';
       ctx.font = '14px sans-serif';
       ctx.fillText('지구 (중심)', centerX + 20, centerY);
       ctx.fillText('주전원 중심', positions.epicycleCenter.x + 10, positions.epicycleCenter.y - 10);
       ctx.fillText(config.planetName, positions.planet.x + 15, positions.planet.y);
+      ctx.fillText('태양', positions.sun.x + 12, positions.sun.y);
 
       // 설명 텍스트
       ctx.fillStyle = '#AAA';
@@ -336,7 +359,7 @@
       ctx.fillText('지구', positions.earth.x + 15, positions.earth.y);
       ctx.fillText('겉보기 위치', positions.apparent.x + 10, positions.apparent.y - 10);
     }
-
+    
     function drawFromEarthView(positions) {
       const config = getCurrentConfig();
       const currentTrails = getCurrentTrails();
@@ -348,7 +371,7 @@
 
       drawTrail(currentTrails.geoSun, '#FFD700', 2);
       drawTrail(currentTrails.geoPlanet, config.planetColor, 2);
-
+      
       ctx.fillStyle = '#0066FF';
       ctx.beginPath();
       ctx.arc(centerX, centerY, 10, 0, Math.PI * 2);
@@ -393,7 +416,7 @@
       if (isPlaying) {
         updateTrails(positions);
       }
-
+      
       if (currentTab === 'ptolemaic') {
         drawPtolemaicView(positions);
       } else if (currentView === 'top-down') {
@@ -427,6 +450,6 @@
         }
       });
     });
-
+    
     setup();
     animate();
