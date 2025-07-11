@@ -30,11 +30,11 @@
     
     // 프톨레마이오스 모델 설정
     const ptolemaicConfig = {
-      deferentRadius: 180,        
-      epicycleRadius: 45,         // 주전원 반지름
-      sunOrbitRadius: 280,
+      deferentRadius: 160,        
+      epicycleRadius: 90,         // 주전원 반지름
+      sunOrbitRadius: 300,
       deferentAngularSpeed: 1.2,
-      epicycleAngularSpeed: 4.5,  // 주전원 각속도
+      epicycleAngularSpeed: 2.6,  // 주전원 각속도
       planetColor: '#FF6600',
       planetName: '금성',
       sunAngularSpeed : 1.2
